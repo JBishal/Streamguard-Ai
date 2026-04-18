@@ -24,9 +24,10 @@ SPORT_EVENT_RULES = {
 }
 
 
-def detect_peak_time_signal(post_text: str, sport: str) -> dict:
+def detect_peak_time_signal(post_text: str, sport: str, mode: str = "live") -> dict:
     text = (post_text or "").lower()
     sport_key = (sport or "").lower()
+    is_historical_mode = (mode or "live").lower() == "historical_validation"
     live_window_keywords = ["live now", "today", "tonight", "last 24 hours", "last 7 days", "last month"]
     has_live_window_phrase = any(keyword in text for keyword in live_window_keywords)
 
@@ -35,7 +36,7 @@ def detect_peak_time_signal(post_text: str, sport: str) -> dict:
             return {
                 "peak_time_signal": True,
                 "event_context": event_context,
-                "live_window_status": "Event Peak Window",
+                "live_window_status": "Historical Replay Window" if is_historical_mode else "Peak Window",
                 "peak_time_reason": f"High-interest live {sport_key} event keyword match.",
                 "peak_time_weight": weight,
             }
@@ -46,7 +47,7 @@ def detect_peak_time_signal(post_text: str, sport: str) -> dict:
         return {
             "peak_time_signal": True,
             "event_context": "Live Demand Window",
-            "live_window_status": "Active Monitoring Window",
+            "live_window_status": "Historical Replay Window" if is_historical_mode else "Peak Window",
             "peak_time_reason": "Live-stream language during typical high-demand viewing window.",
             "peak_time_weight": 8,
         }
@@ -54,7 +55,7 @@ def detect_peak_time_signal(post_text: str, sport: str) -> dict:
     return {
         "peak_time_signal": False,
         "event_context": "Standard Monitoring Window",
-        "live_window_status": "Baseline Window",
+        "live_window_status": "Historical Replay Window" if is_historical_mode else "Standard Monitoring Window",
         "peak_time_reason": "No major event keyword match detected.",
         "peak_time_weight": 0,
     }
