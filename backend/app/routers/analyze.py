@@ -5,6 +5,7 @@ from fastapi import APIRouter
 
 from app.services.gemini_service import classify_with_gemini
 from app.services.rule_engine import score_post
+from app.services.scoring_service import combine_scores
 
 router = APIRouter()
 
@@ -30,10 +31,13 @@ def analyze_mock_posts():
             post["url"],
         )
 
+        combined_analysis = combine_scores(rule_analysis, gemini_analysis)
+
         results.append({
             **post,
             **rule_analysis,
             **gemini_analysis,
+            **combined_analysis,
         })
 
     return {"results": results}

@@ -51,14 +51,14 @@ def score_post(post_text: str, url: str, upvotes: int, comments: int) -> dict:
 
     rule_score = min(rule_score, 100)
     engagement_score = calculate_engagement_score(upvotes, comments)
-    final_risk_score = min(int(rule_score * 0.7 + engagement_score * 0.3), 100)
-    risk_level = get_risk_level(final_risk_score)
+    base_risk_score = min(int(rule_score * 0.7 + engagement_score * 0.3), 100)
+    risk_level = get_risk_level(base_risk_score)
 
     return {
         "domain": domain,
         "rule_score": rule_score,
         "engagement_score": engagement_score,
-        "final_risk_score": final_risk_score,
+        "base_risk_score": base_risk_score,
         "risk_level": risk_level,
         "reasons": reasons,
     }
