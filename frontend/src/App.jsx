@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "./api/client";
 
 function App() {
@@ -7,6 +7,7 @@ function App() {
   const [insights, setInsights] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showHighRiskOnly, setShowHighRiskOnly] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -30,6 +31,20 @@ function App() {
 
     fetchData();
   }, []);
+
+  const displayedIncidents = useMemo(() => {
+    let filtered = [...incidents];
+
+    if (showHighRiskOnly) {
+      filtered = filtered.filter(
+        (item) => item.combined_risk_level === "High"
+      );
+    }
+
+    filtered.sort((a, b) => b.combined_risk_score - a.combined_risk_score);
+
+    return filtered;
+  }, [incidents, showHighRiskOnly]);
 
   if (loading) {
     return (
@@ -90,12 +105,29 @@ function App() {
       </div>
 
       <div className="mt-10 rounded-2xl bg-white p-6 shadow">
-        <div className="mb-4">
-          <h2 className="text-xl font-bold text-slate-900">Flagged Incidents</h2>
-          <p className="text-sm text-slate-500">
-            Ranked suspicious posts and links detected by the hybrid scoring pipeline
-          </p>
+        <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Flagged Incidents</h2>
+            <p className="text-sm text-slate-500">
+              Ranked suspicious posts and links detected by the hybrid scoring pipeline
+            </p>
+          </div>
+
+          <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={showHighRiskOnly}
+              onChange={(e) => setShowHighRiskOnly(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300"
+            />
+            Show high-risk only
+          </label>
         </div>
+
+        <p className="mb-3 text-sm text-slate-500">
+          Showing {displayedIncidents.length} incident
+          {displayedIncidents.length !== 1 ? "s" : ""}
+        </p>
 
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse text-left">
@@ -111,7 +143,7 @@ function App() {
               </tr>
             </thead>
             <tbody>
-              {incidents.map((item, index) => (
+              {displayedIncidents.map((item, index) => (
                 <tr
                   key={index}
                   className="border-b border-slate-100 hover:bg-slate-50"
