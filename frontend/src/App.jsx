@@ -4,19 +4,22 @@ import api from "./api/client";
 function App() {
   const [summary, setSummary] = useState(null);
   const [incidents, setIncidents] = useState([]);
+  const [insights, setInsights] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [summaryResponse, incidentsResponse] = await Promise.all([
+        const [summaryResponse, incidentsResponse, insightsResponse] = await Promise.all([
           api.get("/summary"),
           api.get("/analyze-mock"),
+          api.get("/insights"),
         ]);
 
         setSummary(summaryResponse.data);
         setIncidents(incidentsResponse.data.results);
+        setInsights(insightsResponse.data);
       } catch (err) {
         setError("Failed to load dashboard data.");
         console.error(err);
@@ -158,6 +161,53 @@ function App() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="mt-10 rounded-2xl bg-white p-6 shadow">
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-slate-900">AI Insights</h2>
+          <p className="text-sm text-slate-500">
+            AI-generated analysis of piracy exposure patterns
+          </p>
+        </div>
+
+        {insights && (
+          <>
+            <div className="mb-6 rounded-xl bg-slate-50 p-4">
+              <p className="leading-relaxed text-slate-800">
+                {insights.summary}
+              </p>
+            </div>
+
+            <div>
+              <h3 className="mb-2 text-sm font-semibold text-slate-600">
+                Top Suspicious Domains
+              </h3>
+              <ul className="space-y-2">
+                {insights.top_domains.map((item, index) => (
+                  <li
+                    key={index}
+                    className="flex justify-between rounded-lg bg-slate-50 px-4 py-2 text-sm"
+                  >
+                    <span className="font-medium text-slate-800">
+                      {item[0]}
+                    </span>
+                    <span className="text-slate-500">
+                      {item[1]} occurrences
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="mt-4 text-sm text-slate-500">
+              High-risk incidents:{" "}
+              <span className="font-semibold text-slate-800">
+                {insights.high_risk_count}
+              </span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
