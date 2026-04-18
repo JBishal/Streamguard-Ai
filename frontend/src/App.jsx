@@ -11,7 +11,12 @@ import {
   YAxis,
 } from "recharts";
 import api from "./api/client";
-import { fallbackIncidents, fallbackInsights, fallbackSummary } from "./data/fallbackData";
+import {
+  fallbackIncidents,
+  fallbackInsights,
+  fallbackSummary,
+  seededSportIncidents,
+} from "./data/fallbackData";
 
 const severityStyles = {
   High: "bg-indigo-950 text-indigo-100",
@@ -26,6 +31,7 @@ const severityTrack = {
 };
 
 const piePalette = ["#1e1b4b", "#312e81", "#4338ca", "#6366f1", "#a5b4fc"];
+const SEEDED_VALIDATION_MODE = true;
 
 const signalDictionary = [
   {
@@ -235,7 +241,10 @@ const buildContextSignals = (incident) => {
 const normalizeIncident = (incident, index) => {
   const score = incident.combined_risk_score ?? incident.base_risk_score ?? 0;
   const level = incident.combined_risk_level || getLevelFromScore(score);
-  const timestamp = new Date(Date.now() - index * 1000 * 60 * 42).toISOString();
+  const timestamp =
+    incident.created_utc != null
+      ? new Date(Number(incident.created_utc) * 1000).toISOString()
+      : incident.timestamp || new Date(Date.now() - index * 1000 * 60 * 42).toISOString();
   const source = incident.platform || "Other";
   const contextSignals = buildContextSignals(incident);
   const fallbackTags = getIncidentTags(incident);
@@ -273,7 +282,9 @@ const normalizeIncident = (incident, index) => {
       incident.event_context_summary || `Monitoring context: ${incident.event_context || "Standard Monitoring Window"}.`,
     recommended_next_step:
       incident.recommended_next_step || "Queue for analyst review and monitor repost persistence.",
-    priority: incident.priority || (score >= 75 ? "P1" : score >= 40 ? "P2" : "P3"),
+    priority:
+      incident.priority ||
+      (score >= 75 ? "high" : score >= 40 ? "medium" : "low"),
     recommended_action:
       incident.recommended_action ||
       (score >= 75
@@ -285,10 +296,39 @@ const normalizeIncident = (incident, index) => {
     workflow_reason:
       incident.workflow_reason || "Workflow routing based on risk score, confidence, and queue capacity.",
     sport: incident.sport || detectIncidentSport(incident),
+    data_label: incident.data_label || "Seeded Validation Incident",
+    monitoring_status: incident.monitoring_status || "Monitoring Active",
+    source_status: incident.source_status || "Live Reddit unavailable",
     reasons: incident.reasons ?? [],
     tags: mergedTags,
     contextSignals,
   };
+};
+
+const shouldShowDraftPreview = (incident) => {
+  const priority = String(incident?.priority || "").toLowerCase();
+  return priority === "high" || priority === "medium" || (incident?.combined_risk_score || 0) >= 55;
+};
+
+const buildDraftEmailPreview = (incident) => {
+  const recipients = ["rights@broadcast-monitor.example", "enforcement@media-ops.example", "legal-review@example.org"];
+  const indexSeed = (incident?.id || "").length % recipients.length;
+  const recipient = recipients[indexSeed];
+  const sport = (incident?.sport || "sports").toUpperCase();
+  const queue = incident?.queue_decision || "REVIEW";
+  const subject = `[Draft] ${sport} stream enforcement review - ${incident?.domain || "unknown-domain"}`;
+  const body = [
+    `Hello Team,`,
+    ``,
+    `This is a draft-only validation notice for internal review.`,
+    `Detected incident context: ${incident?.event_context || "Standard Monitoring Window"}.`,
+    `Suspicious domain/link: ${incident?.domain || "unknown"} (${incident?.url || "no-url"}).`,
+    `Primary concern: ${incident?.workflow_reason || "Potential unauthorized redistribution behavior."}`,
+    `Requested action: review and assess takedown/escalation path (${queue}).`,
+    ``,
+    `Status: Draft Only / Not Sent`,
+  ].join("\n");
+  return { recipient, subject, body, status: "Draft Only / Not Sent" };
 };
 
 function App() {
@@ -305,6 +345,10 @@ function App() {
   const [sportLoading, setSportLoading] = useState(false);
   const [usingFallback, setUsingFallback] = useState(false);
   const [sportUsingFallback, setSportUsingFallback] = useState(false);
+  const [sportMode, setSportMode] = useState("live");
+  const [sportModeLabel, setSportModeLabel] = useState("Live");
+  const [sportSource, setSportSource] = useState("Reddit");
+  const [sportSourceStatus, setSportSourceStatus] = useState("unknown");
   const [lastUpdatedAt, setLastUpdatedAt] = useState(new Date());
   const [now, setNow] = useState(Date.now());
 
@@ -312,20 +356,9 @@ function App() {
     const fetchData = async () => {
       setLoading(true);
 
-      const [summaryResult, incidentsResult, insightsResult] = await Promise.allSettled([
-        api.get("/summary"),
-        api.get("/analyze-mock"),
-        api.get("/insights"),
-      ]);
-
-      const nextSummary =
-        summaryResult.status === "fulfilled" ? summaryResult.value.data : fallbackSummary;
-      const nextIncidents =
-        incidentsResult.status === "fulfilled"
-          ? incidentsResult.value.data?.results || []
-          : fallbackIncidents;
-      const nextInsights =
-        insightsResult.status === "fulfilled" ? insightsResult.value.data : fallbackInsights;
+      const nextSummary = SEEDED_VALIDATION_MODE ? fallbackSummary : null;
+      const nextIncidents = SEEDED_VALIDATION_MODE ? fallbackIncidents : [];
+      const nextInsights = SEEDED_VALIDATION_MODE ? fallbackInsights : null;
 
       const normalizedIncidents = nextIncidents.map(normalizeIncident);
 
@@ -333,11 +366,7 @@ function App() {
       setIncidents(normalizedIncidents);
       setSelectedIncidentId((currentId) => currentId ?? normalizedIncidents[0]?.id ?? null);
       setInsights(nextInsights);
-      setUsingFallback(
-        summaryResult.status !== "fulfilled" ||
-          incidentsResult.status !== "fulfilled" ||
-          insightsResult.status !== "fulfilled",
-      );
+      setUsingFallback(SEEDED_VALIDATION_MODE);
       setLastUpdatedAt(new Date());
       setLoading(false);
     };
@@ -351,12 +380,18 @@ function App() {
       setSportLoading(true);
 
       try {
-        const sportResult = await api.get(`/analyze-sport/${selectedSport}`);
-        const rawSportIncidents = sportResult.data?.results || [];
+        const rawSportIncidents = SEEDED_VALIDATION_MODE
+          ? seededSportIncidents[selectedSport] || []
+          : (await api.get(`/analyze-sport/${selectedSport}`, {
+              params: { mode: sportMode },
+            })).data?.results || [];
         const normalizedSportIncidents = rawSportIncidents.map(normalizeIncident);
         setSportIncidents(normalizedSportIncidents);
         setSelectedSportIncidentId(normalizedSportIncidents[0]?.id || null);
-        setSportUsingFallback(Boolean(sportResult.data?.used_fallback));
+        setSportUsingFallback(SEEDED_VALIDATION_MODE);
+        setSportModeLabel(SEEDED_VALIDATION_MODE ? "Seeded Validation Data" : (sportMode === "historical_validation" ? "Historical Validation" : "Live"));
+        setSportSource("Reddit");
+        setSportSourceStatus(SEEDED_VALIDATION_MODE ? "Live Reddit unavailable" : "unknown");
       } catch {
         const localPool = incidents.length > 0 ? incidents : fallbackIncidents.map(normalizeIncident);
         const fallbackSportIncidents = filterIncidentsBySport(
@@ -366,6 +401,9 @@ function App() {
         setSportIncidents(fallbackSportIncidents);
         setSelectedSportIncidentId(fallbackSportIncidents[0]?.id || null);
         setSportUsingFallback(true);
+        setSportModeLabel("Seeded Validation Data");
+        setSportSource("Reddit");
+        setSportSourceStatus("Live Reddit unavailable");
       } finally {
         setLastUpdatedAt(new Date());
         setSportLoading(false);
@@ -373,7 +411,7 @@ function App() {
     };
 
     fetchSportIncidents();
-  }, [incidents, selectedSport, view]);
+  }, [incidents, selectedSport, sportMode, view]);
 
   useEffect(() => {
     const ticker = setInterval(() => setNow(Date.now()), 30000);
@@ -639,7 +677,7 @@ function App() {
               </h1>
               <p className="mt-1 text-xs text-slate-400">
                 {isSportView
-                  ? `Live Reddit monitoring and enforcement triage for ${selectedSportLabel.toLowerCase()} incidents.`
+                  ? `Monitoring remains active while seeded validation incidents are shown for ${selectedSportLabel.toLowerCase()}.`
                   : isSportsView
                     ? "Select a sport stream, inspect incidents, and route cases into workflow."
                     : isSourcesView
@@ -693,6 +731,22 @@ function App() {
                 : "Current focus: Football (cross-sport monitoring enabled)"}
             </span>
             {isSportView ? (
+              <>
+                <span className="rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-slate-300">
+                  Current mode: {SEEDED_VALIDATION_MODE ? "Seeded Validation Data" : sportModeLabel}
+                </span>
+                <span className="rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-slate-300">
+                  Source: {sportSource}
+                </span>
+                <span className="rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-slate-300">
+                  Source status: {SEEDED_VALIDATION_MODE ? "Live Reddit unavailable" : sportSourceStatus}
+                </span>
+                <span className="rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-slate-300">
+                  Workflow Ready
+                </span>
+              </>
+            ) : null}
+            {isSportView ? (
               <span className="rounded-full border border-indigo-600/40 bg-indigo-500/10 px-2.5 py-1 text-indigo-200">
                 Peak-Time Signal {activeIncidents.some((incident) => incident.peak_time_signal) ? "Active" : "Monitoring"}
               </span>
@@ -704,8 +758,8 @@ function App() {
           {activeFallback && (
             <p className="mt-3 rounded-lg border border-indigo-700/40 bg-indigo-700/10 px-3 py-2 text-xs text-indigo-100">
               {isSportView
-                ? "Running with fallback sport incidents because live Reddit fetch was unavailable."
-                : "Running with fallback incident data because one or more API endpoints were unavailable."}
+                ? "Live Reddit fetch is unavailable. Displaying seeded validation incidents (historical/prototype mode)."
+                : "Displaying seeded validation incidents while live source fetch remains unavailable."}
             </p>
           )}
         </header>
@@ -863,6 +917,7 @@ function IncidentFeedPanel({ incidents, selectedIncident, onSelectIncident, titl
                 <span>{formatTimestamp(incident.timestamp)}</span>
                 <span>Risk {incident.combined_risk_score}</span>
                 <span>Eng {incident.engagement_score}</span>
+                <span>{incident.data_label || "Seeded Validation Incident"}</span>
               </div>
             </button>
           ))
@@ -934,6 +989,7 @@ function DecisionRail({ incident, recommendation }) {
   }
 
   const progressWidth = `${Math.min(Math.max(incident.combined_risk_score, 0), 100)}%`;
+  const emailDraft = buildDraftEmailPreview(incident);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2.5 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900/85 p-3">
@@ -971,6 +1027,21 @@ function DecisionRail({ incident, recommendation }) {
           <ActionPanel compact />
         </div>
       </div>
+      {shouldShowDraftPreview(incident) ? (
+        <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-300">Draft Email Preview</h3>
+          <p className="mt-1 text-[11px] text-slate-400">{emailDraft.status}</p>
+          <p className="mt-2 text-xs text-slate-300">
+            Recipient: <span className="font-semibold text-slate-100">{emailDraft.recipient}</span>
+          </p>
+          <p className="mt-1 text-xs text-slate-300">
+            Subject: <span className="font-semibold text-slate-100">{emailDraft.subject}</span>
+          </p>
+          <pre className="mt-2 whitespace-pre-wrap rounded-md border border-slate-800 bg-slate-900 p-2 text-[11px] text-slate-300">
+            {emailDraft.body}
+          </pre>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -15,37 +15,53 @@ class OpenClawAdapter:
 
     def _mock_process(self, incident: dict, gemini_output: dict) -> dict:
         risk_score = incident.get("risk_score", incident.get("combined_risk_score", 0))
-        ai_confidence = gemini_output.get("ai_confidence", 0.0)
-        high_urgency = risk_score >= 75 and ai_confidence >= 0.65
+        confidence_score = incident.get("confidence_score", int(gemini_output.get("ai_confidence", 0.0) * 100))
+        exposure_score = incident.get("exposure_score", 0)
+        valid_case = bool(incident.get("is_valid_case", True))
+        repeat_signal = bool(incident.get("repeat_incident_signal"))
 
-        if high_urgency:
-            result = {
-                "priority": "P1",
-                "recommended_action": "Escalate to enforcement queue and initiate takedown review.",
-                "status": "Escalated",
-                "queue_decision": "enforcement_queue",
-                "workflow_reason": "High risk score and strong intelligence confidence trigger immediate escalation.",
-            }
-            result["escalation_note"] = (
-                "High risk and strong AI confidence indicate immediate action is recommended."
-            )
-            return result
-
-        if risk_score >= 40:
+        if not valid_case:
             return {
-                "priority": "P2",
-                "recommended_action": "Queue for analyst validation and monitor spread velocity.",
-                "status": "Queued",
-                "queue_decision": "analyst_review",
-                "workflow_reason": "Moderate-to-high risk requires analyst validation before enforcement action.",
+                "priority": "low",
+                "recommended_action": "Do not escalate; keep sample for trend context only.",
+                "status": "closed",
+                "queue_decision": "IGNORE",
+                "workflow_reason": "Incident does not meet multi-signal qualification threshold for actionable piracy.",
+            }
+
+        if risk_score >= 85 and confidence_score >= 75 and exposure_score >= 70:
+            return {
+                "priority": "urgent",
+                "recommended_action": "Escalate to enforcement for urgent review and takedown preparation.",
+                "status": "queued",
+                "queue_decision": "ESCALATE",
+                "workflow_reason": "High risk, strong confidence, and high exposure indicate immediate enforcement priority.",
+            }
+
+        if risk_score >= 70 and confidence_score >= 60:
+            return {
+                "priority": "high",
+                "recommended_action": "Create notice draft and route to analyst validation.",
+                "status": "drafted",
+                "queue_decision": "DRAFT_NOTICE",
+                "workflow_reason": "Actionable case with strong evidence warrants notice drafting before send.",
+            }
+
+        if risk_score >= 48 or repeat_signal:
+            return {
+                "priority": "medium",
+                "recommended_action": "Queue for analyst review and monitor repeated domain activity.",
+                "status": "pending review",
+                "queue_decision": "REVIEW",
+                "workflow_reason": "Moderate risk or recurrence pattern requires human validation.",
             }
 
         return {
-            "priority": "P3",
-            "recommended_action": "Log incident for trend tracking and periodic re-evaluation.",
-            "status": "Monitoring",
-            "queue_decision": "monitoring",
-            "workflow_reason": "Lower-risk signal is retained for monitoring and trend correlation.",
+            "priority": "low",
+            "recommended_action": "Continue monitoring and wait for additional corroborating signals.",
+            "status": "queued",
+            "queue_decision": "MONITOR",
+            "workflow_reason": "Signal strength is currently limited but merits watchlist monitoring.",
         }
 
 
