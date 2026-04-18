@@ -17,7 +17,12 @@ def analyze_mock_posts():
 
     results = []
     for post in posts:
-        analysis = score_post(post["post_text"], post["url"])
+        analysis = score_post(
+            post["post_text"],
+            post["url"],
+            post["upvotes"],
+            post["comments"],
+        )
         results.append({
             **post,
             **analysis,
