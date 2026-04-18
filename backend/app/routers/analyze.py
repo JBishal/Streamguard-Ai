@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter
 
 from app.services.gemini_service import classify_with_gemini
+from app.services.insight_service import generate_insights
 from app.services.rule_engine import score_post
 from app.services.scoring_service import combine_scores
 
@@ -77,3 +78,10 @@ def get_summary():
         "top_suspicious_domain": top_domain,
         "top_domain_count": top_domain_count,
     }
+
+
+@router.get("/insights")
+def get_insights():
+    results = load_and_analyze_posts()
+    insights = generate_insights(results)
+    return insights
