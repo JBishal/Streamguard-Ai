@@ -5,10 +5,34 @@ SUSPICIOUS_KEYWORDS = [
     "watch free",
     "free live stream",
     "live stream",
+    "join live",
+    "watch match free",
+    "watch game free",
+    "stream link",
+    "hd live",
+    "no ads live",
+    "live now",
+    "full match live",
     "hd no ads",
     "watch online free",
     "stream free",
     "full match free",
+]
+
+WATCHLIST_EXACT_DOMAINS = {
+    "streamxyz.live",
+    "freematchnow.xyz",
+    "wicketwatch.xyz",
+    "hoopmirror.live",
+    "courtlinks.click",
+}
+
+WATCHLIST_PARTIAL_PATTERNS = [
+    "stream",
+    "watchfree",
+    "mirror",
+    "hdlive",
+    "freematch",
 ]
 
 
@@ -43,11 +67,22 @@ def score_post(post_text: str, url: str, upvotes: int, comments: int) -> dict:
     domain = extract_domain(url)
 
     suspicious_tlds = [".live", ".xyz", ".click", ".stream"]
+    domain_watch_weight = 0
     for tld in suspicious_tlds:
         if domain.endswith(tld):
             rule_score += 20
+            domain_watch_weight += 8
             reasons.append(f"Suspicious domain ending: '{tld}'")
             break
+
+    if domain in WATCHLIST_EXACT_DOMAINS:
+        rule_score += 25
+        domain_watch_weight += 14
+        reasons.append(f"Domain matched watchlist: '{domain}'")
+    elif any(pattern in domain for pattern in WATCHLIST_PARTIAL_PATTERNS):
+        rule_score += 12
+        domain_watch_weight += 7
+        reasons.append("Domain matched suspicious watchlist pattern")
 
     rule_score = min(rule_score, 100)
     engagement_score = calculate_engagement_score(upvotes, comments)
@@ -60,5 +95,6 @@ def score_post(post_text: str, url: str, upvotes: int, comments: int) -> dict:
         "engagement_score": engagement_score,
         "base_risk_score": base_risk_score,
         "risk_level": risk_level,
+        "domain_watch_weight": domain_watch_weight,
         "reasons": reasons,
     }
