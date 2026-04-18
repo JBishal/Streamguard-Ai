@@ -3,30 +3,36 @@ import api from "./api/client";
 
 function App() {
   const [summary, setSummary] = useState(null);
+  const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const fetchSummary = async () => {
+    const fetchData = async () => {
       try {
-        const response = await api.get("/summary");
-        setSummary(response.data);
+        const [summaryResponse, incidentsResponse] = await Promise.all([
+          api.get("/summary"),
+          api.get("/analyze-mock"),
+        ]);
+
+        setSummary(summaryResponse.data);
+        setIncidents(incidentsResponse.data.results);
       } catch (err) {
-        setError("Failed to load summary data.");
+        setError("Failed to load dashboard data.");
         console.error(err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSummary();
+    fetchData();
   }, []);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 p-8">
         <h1 className="text-3xl font-bold text-slate-900">StreamGuard AI</h1>
-        <p className="mt-4 text-slate-600">Loading summary...</p>
+        <p className="mt-4 text-slate-600">Loading dashboard...</p>
       </div>
     );
   }
@@ -77,6 +83,80 @@ function App() {
           <p className="mt-1 text-sm text-slate-500">
             Count: {summary.top_domain_count}
           </p>
+        </div>
+      </div>
+
+      <div className="mt-10 rounded-2xl bg-white p-6 shadow">
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-slate-900">Flagged Incidents</h2>
+          <p className="text-sm text-slate-500">
+            Ranked suspicious posts and links detected by the hybrid scoring pipeline
+          </p>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-slate-200 text-sm text-slate-500">
+                <th className="px-4 py-3 font-medium">Post</th>
+                <th className="px-4 py-3 font-medium">Domain</th>
+                <th className="px-4 py-3 font-medium">Rule</th>
+                <th className="px-4 py-3 font-medium">Gemini</th>
+                <th className="px-4 py-3 font-medium">Combined</th>
+                <th className="px-4 py-3 font-medium">Confidence</th>
+                <th className="px-4 py-3 font-medium">Level</th>
+              </tr>
+            </thead>
+            <tbody>
+              {incidents.map((item, index) => (
+                <tr
+                  key={index}
+                  className="border-b border-slate-100 hover:bg-slate-50"
+                >
+                  <td className="max-w-md px-4 py-4 text-sm text-slate-800">
+                    <div className="font-medium">{item.post_text}</div>
+                    <div className="mt-1 text-xs text-slate-500 break-all">
+                      {item.url}
+                    </div>
+                  </td>
+
+                  <td className="px-4 py-4 text-sm text-slate-700 break-all">
+                    {item.domain}
+                  </td>
+
+                  <td className="px-4 py-4 text-sm font-semibold text-slate-700">
+                    {item.rule_score}
+                  </td>
+
+                  <td className="px-4 py-4 text-sm font-semibold text-slate-700">
+                    {item.gemini_score}
+                  </td>
+
+                  <td className="px-4 py-4 text-sm font-bold text-slate-900">
+                    {item.combined_risk_score}
+                  </td>
+
+                  <td className="px-4 py-4 text-sm text-slate-700">
+                    {item.combined_confidence}
+                  </td>
+
+                  <td className="px-4 py-4 text-sm">
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                        item.combined_risk_level === "High"
+                          ? "bg-red-100 text-red-700"
+                          : item.combined_risk_level === "Medium"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : "bg-green-100 text-green-700"
+                      }`}
+                    >
+                      {item.combined_risk_level}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
