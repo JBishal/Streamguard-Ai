@@ -3,6 +3,7 @@ from pathlib import Path
 
 from fastapi import APIRouter
 
+from app.services.gemini_service import classify_with_gemini
 from app.services.rule_engine import score_post
 
 router = APIRouter()
@@ -17,15 +18,22 @@ def analyze_mock_posts():
 
     results = []
     for post in posts:
-        analysis = score_post(
+        rule_analysis = score_post(
             post["post_text"],
             post["url"],
             post["upvotes"],
             post["comments"],
         )
+
+        gemini_analysis = classify_with_gemini(
+            post["post_text"],
+            post["url"],
+        )
+
         results.append({
             **post,
-            **analysis,
+            **rule_analysis,
+            **gemini_analysis,
         })
 
     return {"results": results}
