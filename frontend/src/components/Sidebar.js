@@ -13,42 +13,42 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 border-r border-gray-200 bg-white flex flex-col justify-between h-[calc(100vh-4rem)] sticky top-16">
-      <div className="p-4">
-        <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-4">Navigation</h2>
+    <aside className="w-64 border-r border-slate-200 bg-white flex flex-col justify-between h-[calc(100vh-4rem)] sticky top-16">
+      <div className="p-5">
+        <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Navigation</h2>
         <nav className="space-y-1">
           {navItems.map((item) => (
             <Link 
               key={item.name} 
               href={item.path}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${pathname === item.path ? 'bg-brand-blue/10 text-brand-blue font-semibold' : 'text-gray-600 hover:text-brand-blue hover:bg-gray-50 font-medium'}`}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-all duration-200 ${pathname === item.path ? 'bg-brand-blue/10 text-brand-blue font-semibold shadow-[1px_1px_0_rgba(37,99,235,0.1)]' : 'text-slate-600 hover:text-brand-blue hover:bg-slate-50 font-medium'}`}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={item.icon} />
               </svg>
-              <span>{item.name}</span>
+              <span className="text-[13px]">{item.name}</span>
             </Link>
           ))}
         </nav>
       </div>
 
-      <div className="p-5 border-t border-gray-200 bg-gray-50">
-        <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">System Context</h2>
-        <div className="space-y-4">
+      <div className="p-5 border-t border-slate-200 bg-slate-50/50">
+        <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">System Context</h2>
+        <div className="space-y-5">
           <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-gray-500 uppercase font-bold">Active Event</span>
-            <span className="text-sm font-semibold text-gray-900 truncate">Champions League Final</span>
+            <span className="text-[10px] text-slate-500 uppercase font-semibold tracking-wide">Active Event</span>
+            <span className="text-[13px] font-semibold text-slate-900 truncate">Champions League Final</span>
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-gray-500 uppercase font-bold">Monitoring Mode</span>
+            <span className="text-[10px] text-slate-500 uppercase font-semibold tracking-wide">Monitoring Mode</span>
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-brand-blue animate-pulse"></div>
-              <span className="text-sm font-semibold text-brand-blue">Live Analysis</span>
+              <div className="w-2 h-2 rounded-full bg-brand-blue animate-pulse shadow-[0_0_6px_rgba(37,99,235,0.5)]"></div>
+              <span className="text-[13px] font-semibold text-brand-blue">Live Analysis</span>
             </div>
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-gray-500 uppercase font-bold">Data Source</span>
-            <span className="text-sm font-medium text-gray-700">Public Signals (Social & Web)</span>
+            <span className="text-[10px] text-slate-500 uppercase font-semibold tracking-wide">Data Source</span>
+            <span className="text-[13px] font-medium text-slate-700 font-mono">PUB_SIG_NET_01</span>
           </div>
         </div>
       </div>
