@@ -1,9 +1,18 @@
 import json
+import os
+import re
+import smtplib
 from collections import Counter
+from datetime import datetime
+from email.message import EmailMessage
+from io import BytesIO
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 
 from app.services.case_validation_service import evaluate_actionable_case
 from app.services.gemini_service import analyze_incident_intelligence, classify_with_gemini
@@ -19,6 +28,110 @@ router = APIRouter()
 
 SUPPORTED_SPORTS = {"football", "cricket", "basketball"}
 # Sport-specific route support for live Reddit monitoring.
+
+
+class SendReportRequest(BaseModel):
+    email: str
+
+
+def _is_valid_email(email: str) -> bool:
+    return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", (email or "").strip()))
+
+
+def _build_report_pdf_bytes(results: list, summary: dict, insights: dict) -> bytes:
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+    width, height = letter
+    x_margin = 50
+    y = height - 50
+
+    def ensure_space(lines=2):
+        nonlocal y
+        if y < 70 + (lines * 15):
+            pdf.showPage()
+            y = height - 50
+
+    def write_line(text: str, size=11, bold=False):
+        nonlocal y
+        ensure_space(1)
+        pdf.setFont("Helvetica-Bold" if bold else "Helvetica", size)
+        pdf.drawString(x_margin, y, str(text))
+        y -= 16
+
+    def write_wrapped(text: str, max_chars=95, size=10):
+        nonlocal y
+        chunks = [text[i : i + max_chars] for i in range(0, len(text), max_chars)] or [""]
+        for chunk in chunks:
+            ensure_space(1)
+            pdf.setFont("Helvetica", size)
+            pdf.drawString(x_margin, y, chunk)
+            y -= 14
+
+    generated_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    write_line("StreamGuard AI Executive Report", size=18, bold=True)
+    write_line(f"Generated: {generated_at}", size=10)
+    y -= 4
+    write_line("Summary", size=13, bold=True)
+    write_line(f"- Total monitored posts: {summary.get('total_posts', 0)}")
+    write_line(f"- High-risk incidents: {summary.get('high_risk_posts', 0)}")
+    write_line(f"- Average combined risk score: {summary.get('average_combined_risk_score', 0)}")
+    write_line(f"- Top suspicious domain: {summary.get('top_suspicious_domain') or 'N/A'}")
+    y -= 4
+    write_line("AI Insight", size=13, bold=True)
+    write_wrapped(insights.get("summary", "No summary available."))
+    y -= 4
+    write_line("Top Incidents", size=13, bold=True)
+    for idx, incident in enumerate(results[:10], start=1):
+        domain = incident.get("domain") or incident.get("url") or "Unknown source"
+        risk = incident.get("risk_score", incident.get("combined_risk_score", 0))
+        reason = incident.get("recommendation_summary") or incident.get("workflow_reason") or "Flagged for review."
+        write_wrapped(f"{idx}. {domain} | Risk {risk} | {reason}", max_chars=100, size=10)
+        y -= 2
+
+    pdf.save()
+    buffer.seek(0)
+    return buffer.read()
+
+
+def _send_report_email(to_email: str, pdf_bytes: bytes, filename: str):
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+    smtp_from = os.getenv("SMTP_FROM_EMAIL") or smtp_user
+    smtp_use_tls = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
+
+    if not smtp_host or not smtp_from:
+        raise HTTPException(status_code=500, detail="SMTP is not configured on the backend.")
+
+    message = EmailMessage()
+    message["Subject"] = "Your StreamGuard AI Report"
+    message["From"] = smtp_from
+    message["To"] = to_email
+    message.set_content(
+        (
+            "Hello,\n\n"
+            "Your StreamGuard AI report is ready and attached as a PDF.\n\n"
+            "Thanks,\n"
+            "StreamGuard AI"
+        )
+    )
+    message.add_attachment(
+        pdf_bytes,
+        maintype="application",
+        subtype="pdf",
+        filename=filename,
+    )
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=20) as server:
+            if smtp_use_tls:
+                server.starttls()
+            if smtp_user and smtp_password:
+                server.login(smtp_user, smtp_password)
+            server.send_message(message)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Failed to send email: {exc}") from exc
 
 
 def _build_score_breakdown(
@@ -380,3 +493,18 @@ def get_insights():
     results = load_and_analyze_posts()
     insights = generate_insights(results)
     return insights
+
+
+@router.post("/send-report")
+def send_report_email(payload: SendReportRequest):
+    recipient = (payload.email or "").strip()
+    if not _is_valid_email(recipient):
+        raise HTTPException(status_code=400, detail="Please provide a valid email address.")
+
+    results = load_and_analyze_posts()
+    summary = get_summary()
+    insights = generate_insights(results)
+    report_bytes = _build_report_pdf_bytes(results, summary, insights)
+    filename = f"streamguard-report-{datetime.utcnow().strftime('%Y-%m-%d')}.pdf"
+    _send_report_email(recipient, report_bytes, filename)
+    return {"status": "sent", "email": recipient}

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 
 SPORT_EVENT_RULES = {
@@ -41,7 +41,7 @@ def detect_peak_time_signal(post_text: str, sport: str, mode: str = "live") -> d
                 "peak_time_weight": weight,
             }
 
-    current_hour_utc = datetime.now(UTC).hour
+    current_hour_utc = datetime.now(timezone.utc).hour
     live_window = 16 <= current_hour_utc <= 23
     if ("live" in text and live_window) or has_live_window_phrase:
         return {

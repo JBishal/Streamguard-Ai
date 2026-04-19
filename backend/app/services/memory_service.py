@@ -1,5 +1,5 @@
 from collections import Counter
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 
 _DOMAIN_COUNTER = Counter()
@@ -15,7 +15,7 @@ def update_pattern_memory(domain: str, keyword_clusters: list) -> dict:
     if safe_domain:
         _DOMAIN_COUNTER[safe_domain] += 1
         repeated_domain_count = _DOMAIN_COUNTER[safe_domain]
-        _LAST_SEEN[safe_domain] = datetime.now(UTC).isoformat()
+        _LAST_SEEN[safe_domain] = datetime.now(timezone.utc).isoformat()
 
     max_cluster_frequency = 0
     for cluster in clusters:

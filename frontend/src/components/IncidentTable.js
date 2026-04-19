@@ -1,6 +1,8 @@
 import Badge from './Badge';
 
 export default function IncidentTable({ data = [], onRowClick }) {
+  const rows = Array.isArray(data) ? data : [];
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm relative">
       {/* Top right metadata */}
@@ -20,14 +22,14 @@ export default function IncidentTable({ data = [], onRowClick }) {
             </tr>
           </thead>
           <tbody className="text-sm">
-            {data.length === 0 ? (
+            {rows.length === 0 ? (
               <tr>
                 <td colSpan="5" className="py-8 text-center text-gray-500 font-mono text-xs">
                   [!] NO INCIDENTS DETECTED IN CURRENT SWEEP
                 </td>
               </tr>
             ) : (
-              data.map((row, idx) => {
+              rows.map((row, idx) => {
                 const riskLvl = row.risk_level || (row.combined_risk_score > 0.7 ? 'High' : row.combined_risk_score > 0.4 ? 'Medium' : 'Low');
                 
                 let rowBg = 'bg-white hover:bg-gray-50';

@@ -23,6 +23,13 @@ const MOCK_INCIDENTS = [
   { domain: "twitter.com/user9991", risk_score: 0.42, risk_level: "Medium", cluster_id: "C-0911", explanation: "Low follower count account spamming suspected links." },
 ];
 
+function normalizeIncidents(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.results)) return payload.results;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+}
+
 export default function Home() {
   const [summary, setSummary] = useState(MOCK_SUMMARY);
   const [incidents, setIncidents] = useState(MOCK_INCIDENTS);
@@ -41,7 +48,8 @@ export default function Home() {
     fetch("http://127.0.0.1:8000/analyze-mock")
       .then(res => res.json())
       .then(data => {
-        if (data && data.length > 0) setIncidents(data);
+        const normalized = normalizeIncidents(data);
+        if (normalized.length > 0) setIncidents(normalized);
       })
       .catch(err => console.warn("Using mock incidents, backend unavailable:", err));
   }, []);
@@ -51,7 +59,7 @@ export default function Home() {
       const res = await fetch(`http://127.0.0.1:8000/analyze-sport/${sport}`);
       if (!res.ok) throw new Error("Network response was not ok");
       const data = await res.json();
-      setIncidents(data);
+      setIncidents(normalizeIncidents(data));
       // Update trend for dramatic effect
       setTrendIndicator(prev => `+${Math.floor(Math.random() * 20)}`);
       

@@ -1,4 +1,26 @@
+"use client";
+
+import { useState } from "react";
+
+import { generateAndDownloadReportPdf } from "@/lib/reportPdf";
+
 export default function ReportPage() {
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportPdf = async () => {
+    if (isExporting) return;
+
+    try {
+      setIsExporting(true);
+      await generateAndDownloadReportPdf();
+    } catch (error) {
+      console.error("Failed to export report PDF:", error);
+      alert("Could not export PDF right now. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="animate-in fade-in duration-500 max-w-5xl mx-auto min-h-full pr-4 pb-12">
       <div className="flex items-center justify-between mb-8">
@@ -6,11 +28,15 @@ export default function ReportPage() {
           <h1 className="text-3xl font-extrabold text-gray-900 mb-2 tracking-tight">Executive Briefing</h1>
           <p className="text-gray-500 font-medium">Generated automatically for StreamGuard Leadership</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 transition-colors rounded-lg text-sm font-semibold text-gray-700 shadow-sm">
+        <button
+          onClick={handleExportPdf}
+          disabled={isExporting}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 transition-colors rounded-lg text-sm font-semibold text-gray-700 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+        >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
-          Export PDF
+          {isExporting ? "Exporting..." : "Export PDF"}
         </button>
       </div>
 
