@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { blobToBase64, downloadPdfBlob, generateReportPdf } from "@/lib/reportPdf";
 
 export default function ReportPage() {
+  const autoTriggeredRef = useRef(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isReportReady, setIsReportReady] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
@@ -36,6 +37,15 @@ export default function ReportPage() {
       setIsExporting(false);
     }
   };
+
+  useEffect(() => {
+    const shouldAutoGenerate = new URLSearchParams(window.location.search).get("autogenerate") === "1";
+    if (!shouldAutoGenerate || autoTriggeredRef.current || isExporting || isReportReady) {
+      return;
+    }
+    autoTriggeredRef.current = true;
+    handleExportPdf();
+  }, [isExporting, isReportReady]);
 
   const handleEmailSubmit = async (event) => {
     event.preventDefault();
