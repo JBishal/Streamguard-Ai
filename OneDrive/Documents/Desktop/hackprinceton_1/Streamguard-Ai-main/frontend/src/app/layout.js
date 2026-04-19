@@ -26,9 +26,9 @@ export default function RootLayout({ children }) {
     >
       <body className="min-h-screen flex flex-col font-sans bg-background text-foreground">
         <Navbar />
-        <div className="flex flex-1">
+        <div className="flex flex-1 min-h-0 min-w-0">
           <Sidebar />
-          <main className="flex-1 p-6 md:p-8">
+          <main className="flex-1 min-w-0 p-4 sm:p-6 md:p-8 overflow-x-hidden">
             {children}
           </main>
         </div>

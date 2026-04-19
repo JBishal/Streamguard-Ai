@@ -26,7 +26,7 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 border-r border-slate-200 bg-white flex flex-col justify-between h-[calc(100vh-4rem)] sticky top-16">
+    <aside className="hidden lg:flex w-60 xl:w-64 shrink-0 border-r border-slate-200 bg-white flex-col justify-between h-[calc(100vh-4rem)] sticky top-16 overflow-y-auto">
       <div className="p-5">
         <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Navigation</h2>
         <nav className="space-y-1">

@@ -145,25 +145,7 @@ export default function ReportPage() {
           </div>
         </div>
 
-        <div className="md:col-span-1">
-          {/* HeyGen / Video Avatar Placeholder */}
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm h-full flex flex-col hover:shadow-md transition-shadow duration-300">
-            <div className="p-4 border-b border-gray-100 bg-gray-50 -mb-px">
-               <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">AI Analyst Briefing</h3>
-            </div>
-            <div className="flex-1 bg-gray-100 relative group cursor-pointer overflow-hidden flex items-center justify-center min-h-[300px]">
-              {/* Fake Video Player Placeholder */}
-              <div className="relative z-20 flex flex-col items-center justify-center">
-                <div className="w-16 h-16 rounded-full bg-white shadow-sm flex items-center justify-center group-hover:scale-105 transition-transform mb-4 border border-gray-200">
-                  <svg className="w-8 h-8 text-brand-blue ml-1" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </div>
-                <span className="text-sm font-semibold text-gray-700 bg-white/80 px-3 py-1 rounded-full backdrop-blur-sm border border-gray-200 shadow-sm">Play AI Summary</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <div className="md:col-span-1 invisible" aria-hidden="true"></div>
       </div>
 
       {emailOpen && isReportReady ? (

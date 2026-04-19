@@ -201,7 +201,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex min-h-full animate-in fade-in duration-500">
+    <div className="flex flex-col xl:flex-row min-h-full min-w-0 animate-in fade-in duration-500">
       {/* Main Column */}
       <div className="flex-1 flex flex-col min-w-0 pr-0 md:pr-4">
         <HeroCard 
@@ -222,12 +222,12 @@ export default function Home() {
 
         {/* Incident Table */}
         <div className="flex-1 min-h-0 mb-8">
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center justify-between gap-3 mb-5">
             <h2 className="text-lg font-bold text-gray-900 tracking-tight flex items-center gap-2">
               <div className="w-1.5 h-1.5 bg-brand-blue rounded-full shadow-[0_0_6px_rgba(37,99,235,0.6)]"></div>
               Active Threats
             </h2>
-            <button className="text-[10px] font-bold text-slate-500 hover:text-brand-blue transition-colors uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-md border border-slate-200 shadow-sm hover:shadow-md">
+            <button className="text-[10px] font-bold text-slate-500 hover:text-brand-blue transition-colors uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-md border border-slate-200 shadow-sm hover:shadow-md whitespace-nowrap">
               Expand Log
             </button>
           </div>

@@ -6,17 +6,40 @@ const normalizeRisk = (item) => {
   return value > 1 ? value : value * 100;
 };
 
+const simplifyTargetLabel = (raw = "") => {
+  if (!raw) return "unknown-target";
+  const text = String(raw).trim();
+  try {
+    const withProtocol = text.startsWith("http://") || text.startsWith("https://") ? text : `https://${text}`;
+    const url = new URL(withProtocol);
+    return (url.hostname || text).replace(/^www\./, "");
+  } catch {
+    return text.replace(/^https?:\/\//, "").split("/")[0].replace(/^www\./, "");
+  }
+};
+
 export default function RightSidebar({ averageRisk = 0, incidents = [] }) {
   const topTargets = useMemo(() => {
     const weights = {};
     incidents.forEach((item) => {
-      const key = item.target_url || item.domain || item.source_name || "unknown-target";
+      const label = simplifyTargetLabel(item.target_url || item.domain || item.source_name || "unknown-target");
       const score = normalizeRisk(item);
-      weights[key] = (weights[key] || 0) + (score >= 75 ? 3 : score >= 40 ? 2 : 1);
+      if (!weights[label]) {
+        weights[label] = { incidents: 0, totalRisk: 0 };
+      }
+      weights[label].incidents += 1;
+      weights[label].totalRisk += score;
     });
     return Object.entries(weights)
-      .map(([domain, count]) => ({ domain, count }))
-      .sort((a, b) => b.count - a.count)
+      .map(([target, stats]) => ({
+        target,
+        incidents: stats.incidents,
+        avgRisk: stats.incidents ? Number((stats.totalRisk / stats.incidents).toFixed(1)) : 0,
+      }))
+      .sort((a, b) => {
+        if (b.incidents !== a.incidents) return b.incidents - a.incidents;
+        return b.avgRisk - a.avgRisk;
+      })
       .slice(0, 5);
   }, [incidents]);
 
@@ -60,7 +83,7 @@ export default function RightSidebar({ averageRisk = 0, incidents = [] }) {
   const avgRiskLevel = avgRiskValue >= 75 ? "HIGH" : avgRiskValue >= 40 ? "MEDIUM" : "LOW";
 
   return (
-    <aside className="w-80 ml-6 flex flex-col gap-6">
+    <aside className="w-full xl:w-80 xl:ml-6 mt-6 xl:mt-0 min-w-0 flex flex-col gap-6">
       {/* Risk Overview */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow relative">
         <div className="absolute top-2 right-4 text-[10px] font-mono text-gray-400">SYS.OVR.00</div>
@@ -74,28 +97,19 @@ export default function RightSidebar({ averageRisk = 0, incidents = [] }) {
             {avgRiskLevel}
           </div>
         </div>
-        
-        {/* Segmented Signal Bars (instead of solid block sparklines) */}
-        <div className="w-full h-12 flex items-end gap-[2px]">
-          {(incidents.length > 0 ? incidents.slice(0, 10).map((item) => Math.round(normalizeRisk(item))) : [40, 48, 52, 57, 61, 68, 72, 76, 80, 84]).map((val, i) => (
-            <div 
-              key={i} 
-              className="flex-1 flex flex-col justify-end gap-[2px]"
-              style={{ height: '100%' }}
-            >
-              {[...Array(5)].map((_, j) => {
-                const threshold = (j + 1) * 20;
-                let isActive = val >= threshold;
-                let bgLevel = val > 75 ? 'bg-risk-high' : val > 50 ? 'bg-risk-medium' : 'bg-brand-blue';
-                return (
-                  <div 
-                    key={j} 
-                    className={`h-full w-full rounded-[1px] ${isActive ? bgLevel : 'bg-gray-100'}`}
-                  ></div>
-                );
-              })}
-            </div>
-          ))}
+
+        <div className="space-y-2">
+          <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${avgRiskValue >= 75 ? "bg-risk-high" : avgRiskValue >= 40 ? "bg-risk-medium" : "bg-risk-low"}`}
+              style={{ width: `${Math.max(0, Math.min(100, avgRiskValue))}%` }}
+            ></div>
+          </div>
+          <div className="flex justify-between text-[10px] font-mono text-gray-500">
+            <span>LOW</span>
+            <span>MEDIUM</span>
+            <span>HIGH</span>
+          </div>
         </div>
       </div>
 
@@ -105,16 +119,13 @@ export default function RightSidebar({ averageRisk = 0, incidents = [] }) {
         <h3 className="text-[11px] font-semibold uppercase text-gray-500 tracking-widest mb-4">Top Targets</h3>
         <div className="space-y-4">
           {topTargets.map((item, i) => (
-            <div key={i}>
-              <div className="flex justify-between text-sm mb-1.5">
-                <span className="text-gray-700 font-mono text-[11px] font-semibold">{item.domain}</span>
-                <span className="font-bold text-gray-900 font-mono text-xs">{item.count}</span>
-              </div>
-              <div className="w-full bg-gray-100 rounded-sm h-1.5 overflow-hidden">
-                <div 
-                  className="bg-brand-blue h-full rounded-sm opacity-90 shadow-[0_0_8px_rgba(37,99,235,0.4)]" 
-                  style={{ width: `${Math.min(item.count, 100)}%` }}
-                ></div>
+            <div key={i} className="border border-gray-100 rounded-lg p-2.5 bg-gray-50/60">
+              <div className="flex items-start justify-between gap-3 text-sm">
+                <span className="text-gray-700 font-mono text-[11px] font-semibold break-all pr-2">{item.target}</span>
+                <div className="text-right shrink-0">
+                  <div className="font-bold text-gray-900 font-mono text-xs">{item.incidents} incident{item.incidents === 1 ? "" : "s"}</div>
+                  <div className="text-[10px] text-gray-500 font-mono">avg risk {item.avgRisk.toFixed(1)}</div>
+                </div>
               </div>
             </div>
           ))}

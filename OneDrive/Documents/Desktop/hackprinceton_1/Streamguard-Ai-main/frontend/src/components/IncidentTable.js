@@ -9,7 +9,7 @@ export default function IncidentTable({ data = [], onRowClick }) {
       </div>
       
        <div className="overflow-x-auto mt-4">
-        <table className="w-full text-left border-collapse">
+        <table className="w-full min-w-[760px] text-left border-collapse">
           <thead>
             <tr className="bg-gray-50 text-gray-500 text-[11px] uppercase tracking-widest border-y border-gray-200">
               <th className="font-semibold py-3 px-5">Target ID</th>
@@ -53,7 +53,7 @@ export default function IncidentTable({ data = [], onRowClick }) {
                     className={`border-b border-gray-100 transition-colors cursor-pointer group ${rowBg}`}
                   >
                     <td className={`py-3.5 px-5 border-l-4 ${borderLeft}`}>
-                      <div className="font-mono text-[13px] font-bold text-gray-900 group-hover:text-brand-blue transition-colors truncate max-w-xs">
+                      <div className="font-mono text-[13px] font-bold text-gray-900 group-hover:text-brand-blue transition-colors break-all max-w-xs">
                         {row.domain || row.title || "Unknown_Target_0x"}
                       </div>
                     </td>
@@ -68,7 +68,7 @@ export default function IncidentTable({ data = [], onRowClick }) {
                         {row.cluster_id || `C-${1000 + idx}`}
                       </span>
                     </td>
-                    <td className="py-3.5 px-5 text-gray-600 truncate max-w-sm font-mono text-[11px]" title={row.explanation || row.suspicion_triggers?.join(', ')}>
+                    <td className="py-3.5 px-5 text-gray-600 break-words max-w-sm font-mono text-[11px]" title={row.explanation || row.suspicion_triggers?.join(', ')}>
                       {row.explanation || (row.suspicion_triggers ? row.suspicion_triggers.join(' | ') : "SYS_ERR_UNAUTHORIZED_BROADCAST")}
                     </td>
                   </tr>

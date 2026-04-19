@@ -12,13 +12,13 @@ export default function Modal({ isOpen, onClose, data }) {
       <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-gray-50/50">
-          <div>
+        <div className="flex items-center justify-between gap-3 p-4 sm:p-6 border-b border-gray-100 bg-gray-50/50">
+          <div className="min-w-0">
             <div className="flex items-center gap-3 mb-1">
-              <h2 className="text-xl font-bold text-gray-900 max-w-md truncate">{data.domain || data.title}</h2>
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 max-w-md break-all">{data.domain || data.title}</h2>
               <Badge level={riskLevel} />
             </div>
-            <p className="font-mono text-[11px] text-gray-500">Cluster ID: {data.cluster_id || 'N/A'} • Score: {numericRisk.toFixed(2)}</p>
+            <p className="font-mono text-[11px] text-gray-500 break-words">Cluster ID: {data.cluster_id || 'N/A'} • Score: {numericRisk.toFixed(2)}</p>
           </div>
           <button 
             onClick={onClose}
@@ -31,7 +31,7 @@ export default function Modal({ isOpen, onClose, data }) {
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto flex-1 bg-white">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 bg-white">
           <div className="space-y-6">
             
             <div>
@@ -55,7 +55,7 @@ export default function Modal({ isOpen, onClose, data }) {
               </ul>
             </div>
 
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
                <div className="flex-1 bg-risk-low/5 border border-risk-low/20 rounded-xl p-4">
                  <span className="text-[10px] uppercase text-gray-500 font-bold tracking-widest">Confidence</span>
                  <div className="text-xl font-bold text-risk-low mt-1 font-mono">94.2%</div>

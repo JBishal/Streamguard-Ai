@@ -6,13 +6,9 @@ export default function HeroCard({ incidentCount = 0, clusterCount = 0, trend = 
         SYS.ID: SG-AL-01 | {new Date().toISOString().split('T')[0]}
       </div>
 
-      <div className="p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mt-2 relative z-10">
+      <div className="p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mt-2 relative z-10 min-w-0">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-1.5 h-1.5 bg-brand-blue rounded-full shadow-[0_0_8px_rgba(37,99,235,0.8)]"></div>
-            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Intelligence Core</h2>
-          </div>
-          <p className="text-gray-600 max-w-xl text-[14px] leading-relaxed font-medium">
+          <p className="text-gray-700 max-w-xl text-[15px] md:text-base leading-relaxed font-semibold text-justify">
             StreamGuard AI monitors open digital signals across social platforms, suspicious domains, and sharing networks to identify possible unauthorized sports distribution.
             It prioritizes incidents with transparent risk scoring based on signal strength, audience reach, repeat behavior, and event importance.
             Rights teams can focus first on urgent threats while the platform prepares rapid, demo-safe response actions for high-risk cases.
@@ -20,8 +16,8 @@ export default function HeroCard({ incidentCount = 0, clusterCount = 0, trend = 
           </p>
         </div>
 
-        <div className="flex gap-4">
-          <div className="bg-gray-50 border border-gray-100 rounded-lg p-4 min-w-[140px] relative overflow-hidden group-hover:border-brand-blue/20 transition-colors">
+        <div className="flex flex-wrap sm:flex-nowrap gap-4 w-full md:w-auto">
+          <div className="bg-gray-50 border border-gray-100 rounded-lg p-4 min-w-[140px] flex-1 sm:flex-none relative overflow-hidden group-hover:border-brand-blue/20 transition-colors">
             <div className="absolute left-0 top-0 bottom-0 w-1 bg-risk-high opacity-80"></div>
             <div className="flex items-center justify-between mb-1.5 pl-2">
               <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">High Risk</span>
@@ -32,7 +28,7 @@ export default function HeroCard({ incidentCount = 0, clusterCount = 0, trend = 
             <span className="text-3xl font-bold text-gray-900 font-mono tracking-tight pl-2">{incidentCount}</span>
           </div>
 
-          <div className="bg-gray-50 border border-gray-100 rounded-lg p-4 min-w-[140px] relative overflow-hidden group-hover:border-brand-blue/20 transition-colors">
+          <div className="bg-gray-50 border border-gray-100 rounded-lg p-4 min-w-[140px] flex-1 sm:flex-none relative overflow-hidden group-hover:border-brand-blue/20 transition-colors">
              <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-blue opacity-50"></div>
              <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 pl-2">Active Clusters</div>
              <span className="text-3xl font-bold text-gray-900 font-mono tracking-tight pl-2">{clusterCount}</span>

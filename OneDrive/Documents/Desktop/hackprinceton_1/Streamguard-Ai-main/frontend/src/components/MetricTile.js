@@ -11,7 +11,7 @@ export default function MetricTile({ label, value, type = 'default' }) {
         SYS.MTR.{metricTag}
       </div>
       <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-2 mt-1">{label}</span>
-      <span className={`${valueFont} font-bold ${valueColor} truncate leading-tight`} title={value}>
+      <span className={`${valueFont} font-bold ${valueColor} ${type === 'domain' ? 'break-all' : 'truncate'} leading-tight`} title={value}>
         {value}
       </span>
     </div>

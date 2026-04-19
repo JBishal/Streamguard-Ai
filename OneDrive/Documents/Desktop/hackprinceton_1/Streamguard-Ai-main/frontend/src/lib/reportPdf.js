@@ -16,6 +16,7 @@ async function fetchJsonWithTimeout(path, timeoutMs = 7000) {
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, {
       signal: controller.signal,
+      cache: "no-store",
     });
     if (!response.ok) {
       throw new Error(`Request failed for ${path} with status ${response.status}`);
@@ -27,6 +28,7 @@ async function fetchJsonWithTimeout(path, timeoutMs = 7000) {
 }
 
 export async function fetchReportData() {
+  const fetchedAtIso = new Date().toISOString();
   const [summaryResult, insightsResult, incidentsResult] = await Promise.allSettled([
     fetchJsonWithTimeout("/summary"),
     fetchJsonWithTimeout("/insights"),
@@ -42,11 +44,13 @@ export async function fetchReportData() {
     summary,
     insights,
     incidents: incidents.length > 0 ? incidents : fallbackIncidents,
+    fetchedAtIso,
   };
 }
 
-function formatGeneratedAt() {
-  return new Date().toLocaleString(undefined, {
+function formatGeneratedAt(sourceIsoString) {
+  const value = sourceIsoString ? new Date(sourceIsoString) : new Date();
+  return value.toLocaleString(undefined, {
     year: "numeric",
     month: "short",
     day: "2-digit",
@@ -103,7 +107,7 @@ export async function generateReportPdf() {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
   doc.setTextColor(85, 85, 85);
-  doc.text(`Generated: ${formatGeneratedAt()}`, marginX, y);
+  doc.text(`Generated: ${formatGeneratedAt(data.fetchedAtIso)}`, marginX, y);
   y += 24;
 
   doc.setDrawColor(225, 225, 225);
