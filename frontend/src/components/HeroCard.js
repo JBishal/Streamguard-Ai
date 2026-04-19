@@ -1,9 +1,19 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
 export default function HeroCard({ incidentCount = 0, clusterCount = 0, trend = "+0" }) {
+  const [dateStamp, setDateStamp] = useState("");
+
+  useEffect(() => {
+    setDateStamp(new Date().toISOString().split("T")[0]);
+  }, []);
+
   return (
     <div className="relative rounded-xl mb-6 shadow-sm border border-gray-200 bg-white hover:shadow-md transition-shadow duration-200 overflow-hidden group">
       {/* Top right metadata */}
       <div className="absolute top-2 right-4 text-[10px] font-mono text-gray-400 opacity-80 group-hover:opacity-100 transition-opacity">
-        SYS.ID: SG-AL-01 | {new Date().toISOString().split('T')[0]}
+        SYS.ID: SG-AL-01{dateStamp ? ` | ${dateStamp}` : ""}
       </div>
 
       <div className="p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mt-2 relative z-10">

@@ -1,5 +1,16 @@
 import Badge from './Badge';
 
+function getFallbackClusterId(row, index) {
+  const seed = String(row?.domain || row?.title || row?.url || index || "cluster");
+  let hash = 0;
+
+  for (let charIndex = 0; charIndex < seed.length; charIndex += 1) {
+    hash = (hash * 33 + seed.charCodeAt(charIndex)) % 9000;
+  }
+
+  return `C-${String(hash + 1000).padStart(4, "0")}`;
+}
+
 export default function IncidentTable({ data = [], onRowClick }) {
   const rows = Array.isArray(data) ? data : [];
 
@@ -65,7 +76,7 @@ export default function IncidentTable({ data = [], onRowClick }) {
                     </td>
                     <td className="py-3.5 px-5">
                       <span className="font-mono text-[11px] text-gray-600 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded shadow-sm">
-                        {row.cluster_id || `C-${Math.floor(Math.random() * 9000) + 1000}`}
+                        {row.cluster_id || getFallbackClusterId(row, idx)}
                       </span>
                     </td>
                     <td className="py-3.5 px-5 text-gray-600 truncate max-w-sm font-mono text-[11px]" title={row.explanation || row.suspicion_triggers?.join(', ')}>

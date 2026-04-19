@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { generateAndDownloadReportPdf } from "@/lib/reportPdf";
+
+const SMTP_NOT_CONFIGURED_MESSAGE = "SMTP is not configured on the backend.";
 
 export default function Navbar() {
   const [isSending, setIsSending] = useState(false);
@@ -67,7 +70,19 @@ export default function Navbar() {
       setStatusMessage(`Report sent successfully to ${data.email}.`);
       setStatusType("success");
     } catch (error) {
-      console.error("Failed to send report email:", error);
+      if (error?.message?.includes(SMTP_NOT_CONFIGURED_MESSAGE)) {
+        try {
+          await generateAndDownloadReportPdf();
+          setStatusMessage("SMTP is not configured, so the report PDF was downloaded locally instead.");
+          setStatusType("info");
+          return;
+        } catch (downloadError) {
+          setStatusMessage(`Email is unavailable and local PDF download failed: ${downloadError.message}`);
+          setStatusType("error");
+          return;
+        }
+      }
+
       setStatusMessage(`Report email failed: ${error.message}`);
       setStatusType("error");
     } finally {
