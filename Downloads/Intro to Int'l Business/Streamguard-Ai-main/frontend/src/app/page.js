@@ -76,6 +76,25 @@ const normalizeForUi = (item = {}, sport = "football") => {
     explanation: item.explanation || "Flagged due to suspicious signal composition and risk indicators.",
   };
 };
+const fetchMergedSportIncidents = async (sport) => {
+  const [backendResult, externalResult] = await Promise.allSettled([
+    fetch(`http://127.0.0.1:8000/analyze-sport/${sport}`),
+    fetch(`/api/k2-incidents?sport=${encodeURIComponent(sport)}`),
+  ]);
+
+  const backendItems = backendResult.status === "fulfilled" && backendResult.value.ok
+    ? await backendResult.value.json()
+    : [];
+  const externalPayload = externalResult.status === "fulfilled" && externalResult.value.ok
+    ? await externalResult.value.json()
+    : { incidents: [] };
+
+  const normalizedBackend = (Array.isArray(backendItems) ? backendItems : []).map((item) => normalizeForUi(item, sport));
+  const normalizedExternal = (Array.isArray(externalPayload?.incidents) ? externalPayload.incidents : []).map((item) => normalizeForUi(item, sport));
+  const fallbackSportData = getDemoIncidentsForSport(sport).map((item) => normalizeForUi(item, sport));
+
+  return dedupeIncidents([...normalizedBackend, ...normalizedExternal, ...fallbackSportData]);
+};
 
 export default function Home() {
   const [summary, setSummary] = useState(DEMO_SUMMARY || MOCK_SUMMARY);
@@ -123,20 +142,16 @@ export default function Home() {
         setSummary(DEMO_SUMMARY || MOCK_SUMMARY);
       });
 
-    fetch("http://127.0.0.1:8000/analyze-mock")
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.length > 0) {
-          const normalizedData = data.map((item) => normalizeForUi(item, "football"));
-          const merged = dedupeIncidents([...normalizedData, ...DEMO_INCIDENTS.map((item) => normalizeForUi(item, "football"))]);
+    fetchMergedSportIncidents("football")
+      .then((merged) => {
+        if (merged.length > 0) {
           setIncidents(merged);
           return;
         }
-        // Fallback to stable mock incidents when API returns empty payload.
         setIncidents((DEMO_INCIDENTS.length ? DEMO_INCIDENTS : MOCK_INCIDENTS).map((item) => normalizeForUi(item, "football")));
       })
-      .catch(err => {
-        console.warn("Using mock incidents, backend unavailable:", err);
+      .catch((err) => {
+        console.warn("Using mock incidents, APIs unavailable:", err);
         setIncidents((DEMO_INCIDENTS.length ? DEMO_INCIDENTS : MOCK_INCIDENTS).map((item) => normalizeForUi(item, "football")));
       });
   }, []);
@@ -147,25 +162,12 @@ export default function Home() {
       localStorage.setItem("streamguard.active_event", normalizedEvent);
     } catch {}
     try {
-      const res = await fetch(`http://127.0.0.1:8000/analyze-sport/${sport}`);
-      if (!res.ok) throw new Error("Network response was not ok");
-      const data = await res.json();
-      const apiData = Array.isArray(data) ? data : [];
-      const normalizedBackend = apiData.map((item) => normalizeForUi(item, sport));
-      let normalizedExternalApi = [];
-      try {
-        const extRes = await fetch(`/api/k2-incidents?sport=${encodeURIComponent(sport)}`);
-        if (extRes.ok) {
-          const extPayload = await extRes.json();
-          const extItems = Array.isArray(extPayload?.incidents) ? extPayload.incidents : [];
-          normalizedExternalApi = extItems.map((item) => normalizeForUi(item, sport));
-        }
-      } catch {}
-      const fallbackSportData = getDemoIncidentsForSport(sport).map((item) => normalizeForUi(item, sport));
-      const mergedData = dedupeIncidents([...normalizedBackend, ...normalizedExternalApi, ...fallbackSportData]).map((item) => ({
+      const mergedRaw = await fetchMergedSportIncidents(sport);
+      const mergedData = mergedRaw.map((item) => ({
         ...item,
         active_event: normalizedEvent,
       }));
+      const fallbackSportData = getDemoIncidentsForSport(sport).map((item) => normalizeForUi(item, sport));
       setIncidents(mergedData.length ? mergedData : fallbackSportData);
       // Update trend for dramatic effect
       setTrendIndicator(prev => `+${Math.floor(Math.random() * 20)}`);
@@ -177,11 +179,11 @@ export default function Home() {
         if (sumData && sumData.total_posts !== undefined) {
           setSummary(sumData);
         } else {
-          const sourceData = Array.isArray(data) && data.length > 0 ? data : (getDemoIncidentsForSport(sport) || DEMO_MOCK_ALL);
+          const sourceData = mergedData.length > 0 ? mergedData : (getDemoIncidentsForSport(sport) || DEMO_MOCK_ALL);
           setSummary(buildSummaryFromIncidents(sourceData));
         }
       } else {
-        const sourceData = Array.isArray(data) && data.length > 0 ? data : (getDemoIncidentsForSport(sport) || DEMO_MOCK_ALL);
+        const sourceData = mergedData.length > 0 ? mergedData : (getDemoIncidentsForSport(sport) || DEMO_MOCK_ALL);
         setSummary(buildSummaryFromIncidents(sourceData));
       }
     } catch (error) {

@@ -10,6 +10,8 @@ const PIA_MODEL = process.env.PIA_MODEL;
 const OPENAI_COMPAT_BASE_URL = process.env.OPENAI_COMPAT_BASE_URL;
 const OPENAI_COMPAT_API_KEY = process.env.OPENAI_COMPAT_API_KEY;
 const OPENAI_COMPAT_MODEL = process.env.OPENAI_COMPAT_MODEL;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 const DEMO_PIA_ENABLE_GENERATED_DATA = process.env.DEMO_PIA_ENABLE_GENERATED_DATA === "true";
 
 const SPORT_REGIONS = {
@@ -75,6 +77,74 @@ const extractJsonFromText = (text = "") => {
   return candidate;
 };
 
+const buildIncidentPrompt = (sport) =>
+  `Generate 12 realistic ${sport} piracy-signal incident records as a JSON array. ` +
+  `Each object should include: platform, post_text, target_url, source_name, detected_at, estimated_viewers, ` +
+  `suspicious_keywords_count, stream_link_detected, repeat_offender_score, geo_region, match_importance, explanation. ` +
+  `Return JSON array only.`;
+
+const fetchFromCompatApi = async ({ baseUrl, apiKey, model, sport }) => {
+  const response = await fetch(`${baseUrl}/v1/incidents?sport=${encodeURIComponent(sport)}&model=${encodeURIComponent(model)}`, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    cache: "no-store",
+  });
+
+  if (response.ok) {
+    const payload = await response.json();
+    const records = Array.isArray(payload) ? payload : Array.isArray(payload?.incidents) ? payload.incidents : [];
+    return { records, source: "api" };
+  }
+
+  const chatRes = await fetch(`${baseUrl}/v1/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.4,
+      messages: [
+        { role: "system", content: "Return only JSON array. Generate realistic sports piracy signals." },
+        { role: "user", content: buildIncidentPrompt(sport) },
+      ],
+    }),
+    cache: "no-store",
+  });
+
+  if (!chatRes.ok) return { records: [], source: `api-failed:${chatRes.status}` };
+  const chatPayload = await chatRes.json();
+  const content = chatPayload?.choices?.[0]?.message?.content || "";
+  const jsonText = extractJsonFromText(content);
+  const parsed = JSON.parse(jsonText);
+  return { records: Array.isArray(parsed) ? parsed : [], source: "api-chat" };
+};
+
+const fetchFromGemini = async ({ sport }) => {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: buildIncidentPrompt(sport) }] }],
+        generationConfig: { temperature: 0.4 },
+      }),
+      cache: "no-store",
+    },
+  );
+  if (!response.ok) return { records: [], source: `gemini-failed:${response.status}` };
+
+  const payload = await response.json();
+  const text = payload?.candidates?.[0]?.content?.parts?.map((part) => part?.text || "").join("\n") || "";
+  const jsonText = extractJsonFromText(text);
+  const parsed = JSON.parse(jsonText);
+  return { records: Array.isArray(parsed) ? parsed : [], source: "gemini" };
+};
+
 const createGeneratedIncidents = (sport) => {
   const platformPool = ["Reddit", "Telegram", "X/Twitter", "Discord", "Forum"];
   const eventMap = {
@@ -124,8 +194,10 @@ export async function GET(req) {
   const baseUrl = PIA_BASE_URL || K2_BASE_URL || OPENAI_COMPAT_BASE_URL;
   const apiKey = PIA_API_KEY || K2_API_KEY || OPENAI_COMPAT_API_KEY;
   const model = PIA_MODEL || K2_MODEL || OPENAI_COMPAT_MODEL;
+  const hasCompatConfig = Boolean(baseUrl && apiKey && model);
+  const hasGeminiConfig = Boolean(GEMINI_API_KEY && GEMINI_MODEL);
 
-  if (!baseUrl || !apiKey || !model) {
+  if (!hasCompatConfig && !hasGeminiConfig) {
     if (DEMO_PIA_ENABLE_GENERATED_DATA) {
       return NextResponse.json({ incidents: createGeneratedIncidents(sport), source: "generated-fallback" });
     }
@@ -133,58 +205,30 @@ export async function GET(req) {
   }
 
   try {
-    // Attempt direct incidents endpoint first.
-    const response = await fetch(`${baseUrl}/v1/incidents?sport=${encodeURIComponent(sport)}&model=${encodeURIComponent(model)}`, {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      cache: "no-store",
-    });
+    let records = [];
+    let source = "api-unavailable";
 
-    if (response.ok) {
-      const payload = await response.json();
-      const records = Array.isArray(payload) ? payload : Array.isArray(payload?.incidents) ? payload.incidents : [];
+    if (hasCompatConfig) {
+      const compat = await fetchFromCompatApi({ baseUrl, apiKey, model, sport });
+      records = compat.records;
+      source = compat.source;
+    }
+
+    if (records.length === 0 && hasGeminiConfig) {
+      const gemini = await fetchFromGemini({ sport });
+      records = gemini.records;
+      source = gemini.source;
+    }
+
+    if (records.length > 0) {
       const incidents = records.map((item, idx) => normalizeRecord(item, idx, sport));
-      return NextResponse.json({ incidents, source: "api" });
+      return NextResponse.json({ incidents, source });
     }
 
-    // Fallback to chat-completions style endpoint for providers that don't expose /v1/incidents.
-    const chatRes = await fetch(`${baseUrl}/v1/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0.4,
-        messages: [
-          {
-            role: "system",
-            content:
-              "Return only JSON array. Generate realistic sports piracy signals.",
-          },
-          {
-            role: "user",
-            content: `Generate 12 ${sport} incident records as a JSON array with fields: platform, post_text, target_url, source_name, detected_at, estimated_viewers, suspicious_keywords_count, stream_link_detected, repeat_offender_score, geo_region, match_importance, explanation.`,
-          },
-        ],
-      }),
-      cache: "no-store",
-    });
-
-    if (!chatRes.ok) {
-      return NextResponse.json({ incidents: [], source: `api-failed:${chatRes.status}` });
+    if (DEMO_PIA_ENABLE_GENERATED_DATA) {
+      return NextResponse.json({ incidents: createGeneratedIncidents(sport), source: "generated-fallback" });
     }
-
-    const chatPayload = await chatRes.json();
-    const content = chatPayload?.choices?.[0]?.message?.content || "";
-    const jsonText = extractJsonFromText(content);
-    const parsed = JSON.parse(jsonText);
-    const records = Array.isArray(parsed) ? parsed : [];
-    const incidents = records.map((item, idx) => normalizeRecord(item, idx, sport));
-    return NextResponse.json({ incidents, source: "api-chat" });
+    return NextResponse.json({ incidents: [], source });
   } catch (error) {
     if (DEMO_PIA_ENABLE_GENERATED_DATA) {
       return NextResponse.json({ incidents: createGeneratedIncidents(sport), source: "generated-fallback" });
